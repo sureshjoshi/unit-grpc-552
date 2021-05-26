@@ -13,12 +13,14 @@
 # limitations under the License.
 """The Python AsyncIO implementation of the gRPC route guide client."""
 
+import logging
 import random
 from typing import List, Iterable
 
 
 from . import route_guide_pb2, route_guide_pb2_grpc, route_guide_resources
 
+logger = logging.getLogger(__name__)
 
 def make_route_note(
     message: str, latitude: int, longitude: int
@@ -62,7 +64,7 @@ async def guide_list_features(stub: route_guide_pb2_grpc.RouteGuideStub) -> None
     features = stub.ListFeatures(rectangle)
 
     async for feature in features:
-        print(f"Feature called {feature.name} at {feature.location}")
+        logging.info(f"Feature called {feature.name} at {feature.location}")
 
 
 def generate_route(

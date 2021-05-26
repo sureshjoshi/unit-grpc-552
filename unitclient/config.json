@@ -20,8 +20,7 @@
             "callable": "app",
             "limits": {
                 "requests": 100
-            },
-            "processes": {}
+            }
         }
     },
     "access_log": "/var/log/access.log"

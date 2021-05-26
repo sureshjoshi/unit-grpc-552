@@ -39,3 +39,7 @@ Pinging peers dict_keys(['ipv4:172.16.239.101:38266', 'ipv4:172.16.239.100:57390
 2021-05-26 11:30:00,509 - grpc._cython.cygrpc - DEBUG - RPC cancelled for servicer method [/routeguide.RouteGuide/ListFeatures]
 Pinging peers dict_keys(['ipv4:172.16.239.101:38266'])
 ```
+
+## Problem solved
+
+In `config.json`, instead of `processes: {}` - that entire key should be removed so we use 1 static process.
