@@ -16,14 +16,13 @@
 import asyncio
 import time
 import math
-import logging
 from typing import AsyncIterable, Iterable
 
 import grpc
 
 from . import route_guide_pb2, route_guide_pb2_grpc, route_guide_resources
 
-logger = logging.getLogger(__name__)
+peers: dict[str, grpc.aio.ServicerContext] = {}
 
 
 def get_feature(
@@ -74,8 +73,13 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
             return feature
 
     async def ListFeatures(
-        self, request: route_guide_pb2.Rectangle, unused_context
+        self, request: route_guide_pb2.Rectangle, context
     ) -> AsyncIterable[route_guide_pb2.Feature]:
+        peer = context.peer()
+        print(f"Peer {peer} will be pinged regularly")
+        global peers
+        peers[peer] = context
+
         left = min(request.lo.longitude, request.hi.longitude)
         right = max(request.lo.longitude, request.hi.longitude)
         top = max(request.lo.latitude, request.hi.latitude)
@@ -88,6 +92,13 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
                 and feature.location.latitude <= top
             ):
                 yield feature
+
+        # Keep this RPC context alive - to hack in a "subscription" effect
+        try:
+            while True:
+                await asyncio.sleep(1)
+        finally:
+            del peers[peer]
 
     async def RecordRoute(
         self, request_iterator: AsyncIterable[route_guide_pb2.Point], unused_context
@@ -125,11 +136,28 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
             prev_notes.append(new_note)
 
 
+async def ping_peers():
+    global peers
+    index = 0
+    while True:
+        await asyncio.sleep(10)
+        index += 1
+        print(f"Pinging peers {peers.keys()}")
+        for _, context in peers.items():
+            await context.write(
+                route_guide_pb2.Feature(
+                    name=f"PING -> {index}",
+                    location=route_guide_pb2.Point(latitude=0, longitude=0),
+                )
+            )
+
+
 async def serve(port: int = 50000) -> None:
     server = grpc.aio.server()
     route_guide_pb2_grpc.add_RouteGuideServicer_to_server(RouteGuideServicer(), server)
     address = f"[::]:{port}"
-    logger.info(f"Preparing RPC Service on {address}")
+    print(f"Preparing RPC Service on {address}")
     server.add_insecure_port(address)
     await server.start()
+    asyncio.get_event_loop().create_task(ping_peers())
     await server.wait_for_termination()
